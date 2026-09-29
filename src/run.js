@@ -3,7 +3,10 @@ import { spawn } from 'node:child_process';
 const SIGNAL_NUMBERS = { SIGHUP: 1, SIGINT: 2, SIGTERM: 15 };
 
 export function runClaude({ bin, args, configDir, env = process.env, stdio = 'inherit' }) {
-  const childEnv = { ...env, CLAUDE_CONFIG_DIR: configDir };
+  const childEnv = { ...env };
+  if (configDir !== undefined) {
+    childEnv.CLAUDE_CONFIG_DIR = configDir;
+  }
 
   const useShell = process.platform === 'win32' && /\.(cmd|bat)$/i.test(bin);
 

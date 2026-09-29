@@ -4,7 +4,6 @@ import { createRequire } from 'node:module';
 import {
   ROOT_DIR,
   ensureAccount,
-  ensureRoot,
   listAccounts,
   removeAccount,
 } from '../src/accounts.js';
@@ -20,9 +19,13 @@ Run multiple Claude Code accounts on the same machine, side by side.
 
 USAGE
   claude2 <account> [claude args...]   Start Claude Code with that account
-  claude2 <account>                    Start Claude Code (interactive)
-  claude2 <account> -p "prompt"        Start Claude Code in print mode
+  claude2 [claude args...]             Claude flags with no account: use your
+                                       default config dir (~/.claude)
   claude2                              List all accounts
+
+OPTIONS
+  -a, --account <name>   Pick the account. Lets claude flags come first:
+                         claude2 --resume -a work "prompt"
 
 COMMANDS
   ls, list                 List configured accounts
@@ -35,9 +38,15 @@ COMMANDS
   help                     Show this help
   version, --version, -v   Show the version
 
+Anything that is not one of the commands/options above is passed straight
+to Claude Code, so every "claude" flag works with "claude2" as well.
+
 EXAMPLES
   claude2 work                      Start Claude Code as the "work" account
   claude2 personal -p "summarize"   Same, but in print mode
+  claude2 work --resume             Resume the last session of "work"
+  claude2 --resume "prompt"         Claude flags, default account
+  claude2 --resume -a work "prompt" ...but as the "work" account
   claude2 ls                        See every account you have created
   eval "$(claude2 env work)"        Make this shell use the "work" account
   eval "$(claude2 env --default)"   Restore the default account in this shell
@@ -167,9 +176,6 @@ function removeCommand(args) {
 }
 
 async function launch(name, args) {
-  const dir = ensureAccount(name);
-  ensureRoot();
-
   const bin = process.env.CLAUDE_BIN || findClaude();
   if (!bin) {
     throw new UsageError(
@@ -177,9 +183,22 @@ async function launch(name, args) {
     );
   }
 
-  process.stderr.write(`claude2: account "${name}" -> CLAUDE_CONFIG_DIR=${dir}\n`);
+  let configDir;
+  if (name) {
+    configDir = ensureAccount(name);
+    process.stderr.write(`claude2: account "${name}" -> CLAUDE_CONFIG_DIR=${configDir}\n`);
+  } else if (process.env.CLAUDE_CONFIG_DIR) {
+    process.stderr.write(
+      `claude2: no account given -> using CLAUDE_CONFIG_DIR=${process.env.CLAUDE_CONFIG_DIR}\n`
+    );
+  } else {
+    process.stderr.write(
+      'claude2: no account given -> using your default claude config (~/.claude)\n' +
+        '         add an account to keep it separate, e.g. claude2 work --resume "prompt"\n'
+    );
+  }
 
-  const result = await runClaude({ bin, args, configDir: dir });
+  const result = await runClaude({ bin, args, configDir });
   if (!result.ok) {
     if (result.error) {
       throw new UsageError(`Failed to start claude: ${result.error.message}`);
@@ -188,48 +207,105 @@ async function launch(name, args) {
   }
 }
 
-async function main(argv) {
-  const [command, ...rest] = argv;
+function parseCli(argv) {
+  let account = null;
+  const rest = [];
 
-  switch (command) {
-    case undefined:
-      printAccounts();
-      return;
-    case 'help':
-    case '--help':
-    case '-h':
-      process.stdout.write(HELP);
-      return;
-    case 'version':
-    case '--version':
-    case '-v':
-      process.stdout.write(`${version}\n`);
-      return;
-    case 'ls':
-    case 'list':
-      printAccounts();
-      return;
-    case 'doctor':
-      doctor();
-      return;
-    case 'env':
-      await printEnv(rest);
-      return;
-    case 'alias':
-      printAlias(rest);
-      return;
-    case 'rm':
-    case 'remove':
-      removeCommand(rest);
-      return;
-    default:
-      if (command.startsWith('-')) {
-        throw new UsageError(
-          `Unknown option "${command}". Run "claude2 help" for usage.`
-        );
+  for (let index = 0; index < argv.length; index++) {
+    const token = argv[index];
+    if (token === '--account' || token === '-a') {
+      const value = argv[index + 1];
+      if (value === undefined) {
+        throw new UsageError(`Missing account name after "${token}".`);
       }
-      await launch(command, rest);
+      if (account !== null) {
+        throw new UsageError('Give the account only once.');
+      }
+      account = validateAccountName(value);
+      index += 1;
+      continue;
+    }
+    if (token.startsWith('--account=')) {
+      if (account !== null) {
+        throw new UsageError('Give the account only once.');
+      }
+      account = validateAccountName(token.slice('--account='.length));
+      continue;
+    }
+    rest.push(token);
   }
+
+  if (account === null && rest.length > 0 && !rest[0].startsWith('-')) {
+    account = validateAccountName(rest[0]);
+    rest.shift();
+  }
+
+  return { account, args: rest };
+}
+
+const COMMANDS = new Set([
+  'help',
+  '--help',
+  '-h',
+  'version',
+  '--version',
+  '-v',
+  'ls',
+  'list',
+  'doctor',
+  'env',
+  'alias',
+  'rm',
+  'remove',
+]);
+
+async function main(argv) {
+  const accountFlag = argv.some(
+    (token) => token === '--account' || token === '-a' || token.startsWith('--account=')
+  );
+
+  if (argv.length > 0 && !accountFlag && COMMANDS.has(argv[0])) {
+    const [command, ...rest] = argv;
+    switch (command) {
+      case 'help':
+      case '--help':
+      case '-h':
+        process.stdout.write(HELP);
+        return;
+      case 'version':
+      case '--version':
+      case '-v':
+        process.stdout.write(`${version}\n`);
+        return;
+      case 'ls':
+      case 'list':
+        printAccounts();
+        return;
+      case 'doctor':
+        doctor();
+        return;
+      case 'env':
+        await printEnv(rest);
+        return;
+      case 'alias':
+        printAlias(rest);
+        return;
+      case 'rm':
+      case 'remove':
+        removeCommand(rest);
+        return;
+      default:
+        break;
+    }
+  }
+
+  if (argv.length === 0) {
+    printAccounts();
+    return;
+  }
+
+  const { account, args } = parseCli(argv);
+  await launch(account, args);
 }
 
 main(process.argv.slice(2)).catch((error) => {

@@ -1,6 +1,6 @@
 {
   "name": "claude2",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Run multiple Claude Code accounts on the same machine, side by side, with isolated CLAUDE_CONFIG_DIR per account.",
   "keywords": [
     "claude",

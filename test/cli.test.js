@@ -14,7 +14,10 @@ const fakeClaude = join(binDir, 'fake-claude');
 writeFileSync(
   fakeClaude,
   `#!/usr/bin/env node
-process.stdout.write(process.env.CLAUDE_CONFIG_DIR ?? 'unset');
+process.stdout.write(JSON.stringify({
+  dir: process.env.CLAUDE_CONFIG_DIR ?? null,
+  args: process.argv.slice(2),
+}));
 `
 );
 chmodSync(fakeClaude, 0o755);
@@ -70,14 +73,42 @@ test('alias prints a paste-ready alias', () => {
 test('launch runs claude with the account config dir', () => {
   const result = cli(['work', '--version']);
   assert.equal(result.status, 0);
-  assert.ok(result.stdout.includes(join(home, 'work')));
   assert.match(result.stderr, /account "work"/);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.dir, join(home, 'work'));
+  assert.deepEqual(payload.args, ['--version']);
 });
 
-test('unknown option fails with a usage error', () => {
-  const result = cli(['--nope']);
+test('forwards claude flags when no account is given', () => {
+  const result = cli(['--resume', 'analyze docs/public-site']);
+  assert.equal(result.status, 0);
+  assert.match(result.stderr, /no account given/);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.dir, null);
+  assert.deepEqual(payload.args, ['--resume', 'analyze docs/public-site']);
+});
+
+test('keeps CLAUDE_CONFIG_DIR exported by "claude2 env"', () => {
+  const result = cli(['--resume', 'x'], { CLAUDE_CONFIG_DIR: '/tmp/from-env' });
+  assert.equal(result.status, 0);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.dir, '/tmp/from-env');
+  assert.deepEqual(payload.args, ['--resume', 'x']);
+});
+
+test('accepts --account after claude flags', () => {
+  const result = cli(['--resume', '-a', 'work', 'prompt']);
+  assert.equal(result.status, 0);
+  assert.match(result.stderr, /account "work"/);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.dir, join(home, 'work'));
+  assert.deepEqual(payload.args, ['--resume', 'prompt']);
+});
+
+test('rejects a missing account name after --account', () => {
+  const result = cli(['--account']);
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /Unknown option/);
+  assert.match(result.stderr, /Missing account name/);
 });
 
 test('invalid account name fails', () => {

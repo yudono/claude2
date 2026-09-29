@@ -63,11 +63,11 @@ npm install -g claude2
 Verify the installed release:
 
 ```bash
-claude2 --version   # prints the installed version, e.g. 1.0.1
+claude2 --version   # prints the installed version, e.g. 1.0.2
 claude2 doctor      # checks node, the claude binary, and your accounts
 ```
 
-Every published version is tagged on GitHub as `vX.Y.Z` (current: [`v1.0.1`](https://github.com/yudono/claude2/releases/tag/v1.0.1)), and CI runs the test suite on each push.
+Every published version is tagged on GitHub as `vX.Y.Z` (current: [`v1.0.2`](https://github.com/yudono/claude2/releases/tag/v1.0.2)), and CI runs the test suite on each push.
 
 ## Quick start
 
@@ -141,6 +141,24 @@ claude2 work                       # interactive session
 claude2 work --continue            # resume the last session of that account
 claude2 personal -p "hello"        # print mode
 claude2 work --model opus          # any supported claude flag
+claude2 work --resume "prompt"     # resume with a prompt
+```
+
+**Every `claude` flag works with `claude2`.** Anything that is not a `claude2` command or option is forwarded to Claude Code unchanged — including flags that come *before* you mention an account:
+
+```bash
+claude2 --resume "check the docs"              # claude flags only -> your default config (~/.claude)
+claude2 --resume -a work "check the docs"      # same, but as the "work" account
+claude2 --account personal -p "hello"          # --account works anywhere in the line
+```
+
+`claude2` only claims three options for itself: `--help`/`-h`, `--version`/`-v`, and `--account`/`-a`. Everything else belongs to Claude Code.
+
+When no account is given, `claude2` says which config dir it is about to use:
+
+```
+claude2: no account given -> using your default claude config (~/.claude)
+         add an account to keep it separate, e.g. claude2 work --resume "prompt"
 ```
 
 Exit code mirrors Claude Code's exit code.
@@ -207,7 +225,7 @@ claude2 rm work --yes
 Diagnose the installation and the current shell: Node version, root directory, `claude` binary location, whether `CLAUDE_CONFIG_DIR` is already exported in this shell, and how many accounts exist.
 
 ```
-claude2 1.0.1
+claude2 1.0.2
 node         v24.18.0 (darwin/arm64)
 root         /Users/you/.claude2
 claude bin   /Users/you/.bun/bin/claude
@@ -228,7 +246,7 @@ Full usage text, or the version string.
 | Code | Meaning |
 | --- | --- |
 | `0` | Success |
-| `1` | Usage error (bad name, missing `--yes`, unknown option) or a failed setup step |
+| `1` | Usage error (bad name, missing `--yes`, missing account name after `--account`) or a failed setup step |
 | other | Whatever Claude Code itself returned |
 
 Reserved command names (`env`, `alias`, `ls`, `list`, `rm`, `remove`, `doctor`, `help`, `version`) cannot be used as account names.
@@ -260,6 +278,17 @@ claude2 work
 ```
 
 That's it — the name you type *is* the switch.
+
+### "I copied a command from the Claude Code docs — does it still work?"
+
+Yes. Put the account name first (or add `-a <account>`), and the rest is passed to Claude Code untouched:
+
+```bash
+claude2 work --resume "bisa kamu analisa file markdown di -> docs/public-site"
+claude2 --resume -a work "bisa kamu analisa file markdown di -> docs/public-site"
+```
+
+Every `claude` flag (`-p`, `--continue`, `--model`, `--add-dir`, …) works the same way.
 
 ### "I want plain `claude` in this shell, but logged in as account X"
 
@@ -415,6 +444,9 @@ Pick another account name — `env`, `rm`, `ls`, `doctor`, and friends are taken
 No. Names are limited to letters, digits, `.`, `_`, `-` (max 32 characters) so they are safe in shells, scripts, and directory listings.
 
 ## FAQ
+
+**Do all `claude` flags work?**
+Yes. `claude2` forwards anything it does not recognize to Claude Code: `--resume`, `--continue`, `-p`, `--model`, `--add-dir`, `--output-format`, … If the flag comes before the account name, add the account with `--account`/`-a` (e.g. `claude2 --resume -a work "prompt"`), or just put the account first (`claude2 work --resume "prompt"`).
 
 **Does this violate the Claude Code terms of service?**
 It only separates local configuration directories; it does not bypass authentication, quotas, or licensing. Use accounts you are legitimately entitled to, and follow Anthropic's terms.
