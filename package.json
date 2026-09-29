@@ -1,0 +1,46 @@
+{
+  "name": "claude2",
+  "version": "1.0.0",
+  "description": "Run multiple Claude Code accounts on the same machine, side by side, with isolated CLAUDE_CONFIG_DIR per account.",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "anthropic",
+    "multi-account",
+    "multiple-accounts",
+    "config-dir",
+    "switch",
+    "cli"
+  ],
+  "license": "MIT",
+  "author": "yudono",
+  "homepage": "https://github.com/yudono/claude2#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yudono/claude2.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yudono/claude2/issues"
+  },
+  "type": "module",
+  "bin": {
+    "claude2": "bin/claude2.js"
+  },
+  "files": [
+    "bin",
+    "src"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "test": "node --test",
+    "lint": "eslint .",
+    "prepublishOnly": "npm test && npm run lint"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0"
+  }
+}
