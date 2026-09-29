@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/yudono/claude2/actions/workflows/ci.yml/badge.svg)](https://github.com/yudono/claude2/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/claude2.svg)](https://www.npmjs.com/package/claude2)
+[![npm downloads](https://img.shields.io/npm/dm/claude2.svg)](https://www.npmjs.com/package/claude2)
 [![node](https://img.shields.io/node/v/claude2.svg)](https://www.npmjs.com/package/claude2)
 [![license](https://img.shields.io/npm/l/claude2.svg)](LICENSE)
 
@@ -26,8 +27,8 @@ Each account keeps its own login, history, settings, sessions, and permissions. 
 - [Requirements](#requirements)
 - [Install](#install)
 - [Quick start](#quick-start)
+- [Everyday recipes](#everyday-recipes)
 - [Commands](#commands)
-- [Running accounts side by side](#running-accounts-side-by-side)
 - [Shell aliases](#shell-aliases)
 - [Configuration](#configuration)
 - [How it works](#how-it-works)
@@ -53,45 +54,81 @@ Each account keeps its own login, history, settings, sessions, and permissions. 
 
 ## Install
 
+`claude2` is published on npm as [`claude2`](https://www.npmjs.com/package/claude2):
+
 ```bash
 npm install -g claude2
 ```
 
-Verify:
+Verify the installed release:
 
 ```bash
-claude2 --version
-claude2 doctor
+claude2 --version   # prints the installed version, e.g. 1.0.1
+claude2 doctor      # checks node, the claude binary, and your accounts
 ```
+
+Every published version is tagged on GitHub as `vX.Y.Z` (current: [`v1.0.1`](https://github.com/yudono/claude2/releases/tag/v1.0.1)), and CI runs the test suite on each push.
 
 ## Quick start
 
+**Nothing you use today changes.** Plain `claude` keeps logging into your current account (`~/.claude`) exactly as before — `claude2` only adds extra accounts next to it.
+
+The whole idea in one table:
+
+| You type | You get |
+| --- | --- |
+| `claude` | your **original** account (the one you use today) |
+| `claude2 personal` | a **brand-new, separate** account named `personal` |
+| `claude2 work` | a **brand-new, separate** account named `work` |
+
+### 1. Create a new session (first time only)
+
 ```bash
-# 1. Start (or create) your first account.
-#    The config dir is created automatically with 0700 permissions.
+claude2 personal
+```
+
+What happens:
+
+1. `claude2` creates a private folder for it: `~/.claude2/personal` (permissions `0700`, only you).
+2. Claude Code starts using **that folder** instead of `~/.claude`.
+3. You see exactly which folder is in use:
+   ```
+   claude2: account "personal" -> CLAUDE_CONFIG_DIR=/Users/you/.claude2/personal
+   ```
+4. Claude Code asks you to log in **once** (`/login`, or accept the browser prompt).
+   That login now belongs to `personal` only.
+
+Repeat with any name you like: `claude2 work`, `claude2 client-a`, …
+
+### 2. Switch session
+
+There is no "switch" command to learn. **Switching = typing a different name:**
+
+```bash
+claude2 personal   # this terminal is on "personal"
+claude2 work       # this terminal is now on "work"
+claude             # back to your original account
+```
+
+### 3. Open two sessions at the same time
+
+Just use two terminal windows (or tabs), one name each:
+
+```bash
+# window 1
 claude2 work
 
-# 2. Inside Claude Code, log in once (type /login, or accept the browser prompt).
-#    Those credentials belong only to the "work" account.
-
-# 3. Start a second account in another terminal.
+# window 2
 claude2 personal
-
-# 4. Log in with the other account. From now on the two never mix.
-claude2 work      # always account 1
-claude2 personal  # always account 2
-
-# 5. See everything you have.
-claude2 ls
 ```
 
-The first run of a brand-new account prints:
+They run side by side without touching each other's login, history, settings, or sessions.
 
-```
-claude2: account "work" -> CLAUDE_CONFIG_DIR=/Users/you/.claude2/work
-```
+### Which account am I in?
 
-so you always know which account a terminal is using.
+- Look at the line printed when the session starts: `claude2: account "work" -> …`
+- No such line means you are on your **original** account (plain `claude`).
+- Or run `claude2 doctor` — it prints the active config dir and every account you have.
 
 ## Commands
 
@@ -170,7 +207,7 @@ claude2 rm work --yes
 Diagnose the installation and the current shell: Node version, root directory, `claude` binary location, whether `CLAUDE_CONFIG_DIR` is already exported in this shell, and how many accounts exist.
 
 ```
-claude2 1.0.0
+claude2 1.0.1
 node         v24.18.0 (darwin/arm64)
 root         /Users/you/.claude2
 claude bin   /Users/you/.bun/bin/claude
@@ -196,36 +233,83 @@ Full usage text, or the version string.
 
 Reserved command names (`env`, `alias`, `ls`, `list`, `rm`, `remove`, `doctor`, `help`, `version`) cannot be used as account names.
 
-## Running accounts side by side
+## Everyday recipes
 
-Three equivalent ways, pick whichever fits your workflow:
+Copy-paste answers to the things people actually do.
 
-**1. One command per terminal** — simplest:
+### "I already use Claude Code. Do I have to redo anything?"
+
+No. Your current account stays in `~/.claude` and keeps working forever. `claude2` never touches it — it only creates *additional* folders under `~/.claude2`. Create an extra account only when you need one.
+
+### "I want a second session right now"
+
+Open a second terminal window and run:
 
 ```bash
-terminal 1:  claude2 work
-terminal 2:  claude2 personal
+claude2 personal
 ```
 
-**2. Pin a whole shell to an account** — good when you also run other `claude` commands:
+Log in once. Now window 1 (`claude`) and window 2 (`claude2 personal`) are two fully independent sessions.
+
+### "I want to switch this terminal to another account"
+
+Close it (or just run the other name in the same terminal):
 
 ```bash
-eval "$(claude2 env work)"      # terminal 1
-eval "$(claude2 env personal)"  # terminal 2
-claude                          # each terminal stays on its own account
+claude2 work
 ```
 
-**3. Short aliases** — fastest day-to-day:
+That's it — the name you type *is* the switch.
+
+### "I want plain `claude` in this shell, but logged in as account X"
+
+```bash
+eval "$(claude2 env work)"   # from now on, plain `claude` = "work" in THIS shell
+claude
+eval "$(claude2 env --default)"   # restore the original account in this shell
+```
+
+Handy when you also run other `claude` commands (`claude --resume`, `claude -p`, …).
+
+### "I want both accounts open at the same time"
+
+```bash
+# terminal 1                # terminal 2
+claude2 work                claude2 personal
+```
+
+Two windows, two accounts, zero overlap.
+
+### "I'm typing too much — give me short commands"
 
 ```bash
 claude2 alias work w
 claude2 alias personal p
-# add the two printed lines to ~/.zshrc, reload, then:
-w
-p
 ```
 
-Because each account has its own config dir, two sessions can run at the same time without clobbering each other's sessions or history.
+Paste the two printed lines into `~/.zshrc` (or `~/.bashrc`), reload it, then just type `w` or `p`.
+
+### "Which account is this terminal using?"
+
+```bash
+claude2 doctor
+```
+
+It prints the active `CLAUDE_CONFIG_DIR`, where `claude` was found, and every account you have. A session started by plain `claude` (no `claude2:` line) is your original account.
+
+### "Show me all my accounts"
+
+```bash
+claude2 ls
+```
+
+### "I want to delete an account and everything in it"
+
+```bash
+claude2 rm work --yes
+```
+
+Refuses to run without `--yes`, so a typo can't wipe an account. Your original `~/.claude` account is never affected.
 
 ## Shell aliases
 
@@ -372,7 +456,7 @@ Tests use a stubbed `claude` binary (`CLAUDE_BIN`), so they never launch a real 
 Releasing:
 
 ```bash
-npm version 1.0.0 --no-git-tag-version
+npm version patch --no-git-tag-version
 npm test && npm run lint
 npm publish        # prepublishOnly runs the test suite and lint first
 git commit -am "chore: release vX.Y.Z" && git tag vX.Y.Z && git push --follow-tags
